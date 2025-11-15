@@ -5,7 +5,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 @Entity
@@ -16,18 +20,44 @@ import java.util.List;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // DB에 위임하여 ID 자동 생성
-
+    @Column(name = "user_id")
     private Long id;
 
-    @Column(nullable = false, unique = true)
-   private String username;
-           @Column(nullable = false)
-   private String password; // 비밀번호는 반드시 암호화되어 저장되어야합니다.
-           @Column(nullable = false, unique = true)
-   private String email;
-           // 한 명의 유저는 여러 개의 메모를 가질 수 있습니다.
-           // mappedBy는 Memo 엔티티의 'user' 필드에 의해 매핑됨을 나타냅니다.
-           // CascadeType.ALL은 User가 삭제될 때 연관된 Memo도 함께 삭제되도록합니다.
-   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-   private List<Memo> memos;
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @Column(name = "password", nullable = false)
+    private String password; // 비밀번호는 암호화되어 저장
+
+    @Column(name = "industry", nullable = true, length = 50)
+    private String industry;
+
+    @Column(name = "career_years", nullable = true, length = 20)
+    private String careerYears;
+
+    @Column(name = "profile_image_url", nullable = true, length = 500)
+    private String profileImageUrl;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Column(name = "is_active")
+    private boolean isActive = true;
+
+    // 한 명의 유저는 여러 개의 메모를 가질 수 있습니다.
+    // mappedBy는 Memo 엔티티의 'user' 필드에 의해 매핑됨을 나타냅니다.
+    // CascadeType.ALL은 User가 삭제될 때 연관된 Memo도 함께 삭제되도록합니다.
+    //   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    //   private List<Memo> memos;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserPreference userPreference;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private InitialSurvey initialSurvey;
    }

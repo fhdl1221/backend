@@ -48,7 +48,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:5173")); // React 앱 주소
+                "http://localhost:5174")); // React 앱 주소
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("authorization", "content-type", "x-auth-token"));
         configuration.setExposedHeaders(Arrays.asList("x-auth-token"));
@@ -69,8 +69,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/h2-console/**",
-                                "/api/chat/**"  // <-- 이 줄을 추가하세요!
+                                "/h2-console/**"
+//                                "/api/chat/**"  // <-- 이 줄을 추가하세요!
                         ).permitAll() // 인증/인가 API, H2 콘솔, Health 체크는 모두 허용
                         .anyRequest().authenticated() // 나머지 요청은 인증 필요
                 );

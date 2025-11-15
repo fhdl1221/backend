@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.format.DateTimeFormatter;
+import org.springframework.security.core.Authentication;
 
 /**
  * 채팅 API 컨트롤러
@@ -44,9 +45,15 @@ public class ChatController {
      * @return 200 OK 및 AI 응답, 또는 400 Bad Request
      */
     @PostMapping("/send")
-    public ResponseEntity<ChatResponse> sendMessage(@RequestBody ChatRequest request) {
+    public ResponseEntity<ChatResponse> sendMessage(
+            @RequestBody ChatRequest request, Authentication authentication) {
 
         logger.info("채팅 요청 수신");
+
+        String username = authentication.getName();
+        if(username == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
         // 유효성 검사 - 메시지가 비어있는지 확인
         if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
@@ -62,7 +69,7 @@ public class ChatController {
 
         try {
             // ChatService에서 응답 받기
-            ChatResponse response = chatService.chat(request.getMessage());
+            ChatResponse response = chatService.chat(username, request.getMessage());
 
             logger.info("채팅 응답 전송");
 

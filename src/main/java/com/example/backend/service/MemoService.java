@@ -23,9 +23,9 @@ public class MemoService {
     private UserRepository userRepository;
 
     @Transactional
-    public Memo createMemo(MemoRequest memoRequest, String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+    public Memo createMemo(MemoRequest memoRequest, String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + email));
 
         Memo memo = new Memo();
         memo.setTitle(memoRequest.getTitle());
@@ -39,19 +39,19 @@ public class MemoService {
     }
 
     @Transactional(readOnly = true)
-    public List<Memo> getMemosForUser(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+    public List<Memo> getMemosForUser(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
         return memoRepository.findByUser(user);
     }
 
     @Transactional
-    public Memo updateMemo(Long memoId, MemoRequest memoRequest, String username) {
+    public Memo updateMemo(Long memoId, MemoRequest memoRequest, String email) {
         Memo memo = memoRepository.findById(memoId)
                 .orElseThrow(() -> new RuntimeException("Memo not found with id: " + memoId));
 
         // 메모의 소유자인지 확인
-        if (!memo.getUser().getUsername().equals(username)) {
+        if (!memo.getUser().getEmail().equals(email)) {
             throw new RuntimeException("User not authorized to update this memo");
         }
 
@@ -65,12 +65,12 @@ public class MemoService {
     }
 
     @Transactional
-    public void deleteMemo(Long memoId, String username) {
+    public void deleteMemo(Long memoId, String email) {
         Memo memo = memoRepository.findById(memoId)
                 .orElseThrow(() -> new RuntimeException("Memo not found with id: " + memoId));
 
         // 메모의 소유자인지 확인
-        if (!memo.getUser().getUsername().equals(username)) {
+        if (!memo.getUser().getEmail().equals(email)) {
             throw new RuntimeException("User not authorized to delete this memo");
         }
 
