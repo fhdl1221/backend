@@ -42,3 +42,9 @@ gemini.api.url=https://generativelanguage.googleapis.com/v1/models/gemini-2.5-fl
 # Logging
 logging.level.root=INFO
 logging.level.com.example.backend=DEBUG
+
+spring.datasource.hikari.minimum-idle=1
+spring.datasource.hikari.maximum-pool-size=3
+spring.datasource.hikari.idle-timeout=10000
+spring.datasource.hikari.max-lifetime=30000
+spring.datasource.hikari.connection-timeout=20000
