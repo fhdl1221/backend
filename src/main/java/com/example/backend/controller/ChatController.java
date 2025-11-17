@@ -48,10 +48,10 @@ public class ChatController {
     public ResponseEntity<ChatResponse> sendMessage(
             @RequestBody ChatRequest request, Authentication authentication) {
 
-        logger.info("채팅 요청 수신");
+        logger.info("채팅 요청 수신 (Conv ID: {})", request.getConversationId());
 
-        String username = authentication.getName();
-        if(username == null) {
+        String email = authentication.getName(); // 2. username -> email
+        if(email == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -69,15 +69,13 @@ public class ChatController {
 
         try {
             // ChatService에서 응답 받기
-            ChatResponse response = chatService.chat(username, request.getMessage());
+            ChatResponse response = chatService.chat(email, request.getMessage(), request.getConversationId());
 
-            logger.info("채팅 응답 전송");
+            logger.info("채팅 응답 전송 (Conv ID: {})", response.getConversationId());
 
             // ChatService에서 이미 오류 정보를 포함한 응답을 생성하므로 200 OK를 반환합니다.
             // (ChatService의 try-catch 로직에 따라)
-            return ResponseEntity
-                    .status(HttpStatus.OK)
-                    .body(response);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             logger.error("요청 처리 중 서버 오류 발생", e);

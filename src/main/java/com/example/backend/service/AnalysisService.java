@@ -1,9 +1,11 @@
 package com.example.backend.service;
 
 import com.example.backend.config.GeminiConfig;
+import com.example.backend.model.ChatConversation;
 import com.example.backend.model.ChatMessage;
 import com.example.backend.model.User;
 import com.example.backend.model.UserAnalysis;
+import com.example.backend.repository.ChatConversationRepository;
 import com.example.backend.repository.ChatMessageRepository;
 import com.example.backend.repository.UserAnalysisRepository;
 import com.google.gson.Gson;
@@ -35,15 +37,18 @@ public class AnalysisService {
     private final ChatMessageRepository chatMessageRepository;
     private final UserAnalysisRepository userAnalysisRepository;
     private final UserRepository userRepository; // 4. UserRepository 주입
+    private final ChatConversationRepository chatConversationRepository;
 
     public AnalysisService(GeminiConfig geminiConfig,
                            ChatMessageRepository chatMessageRepository,
                            UserAnalysisRepository userAnalysisRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           ChatConversationRepository chatConversationRepository) {
         this.geminiConfig = geminiConfig;
         this.chatMessageRepository = chatMessageRepository;
         this.userAnalysisRepository = userAnalysisRepository;
         this.userRepository = userRepository;
+        this.chatConversationRepository = chatConversationRepository;
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
@@ -57,17 +62,21 @@ public class AnalysisService {
      */
     @Async
     @Transactional
-    public void analyzeConversationAsync(Long userId) {
+    public void analyzeConversationAsync(Long userId, Long conversationId) {
 
         try {
             // 10. [신규] userId로 '관리되는' User 객체를 다시 조회
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + userId));
 
-            logger.info("유저 {}에 대한 비동기 분석 시작", user.getEmail());
-            // 1. 분석할 대화 내역 로드 (최근 10개)
-            List<ChatMessage> history = chatMessageRepository.findTop10ByUserOrderByTimestampDesc(user);
-            Collections.reverse(history); // 시간순으로 재정렬
+            // [신규] 8. conversationId로 Conversation 객체 조회
+            ChatConversation conversation = chatConversationRepository.findById(conversationId)
+                    .orElseThrow(() -> new RuntimeException("Conversation not found: " + conversationId));
+
+            logger.info("유저 {} (Conv ID: {}) 비동기 분석 시작", user.getEmail(), conversation.getId());
+            // [수정] 9. Conversation 기준으로 대화 내역 로드
+            List<ChatMessage> history = chatMessageRepository.findTop10ByChatConversationOrderByCreatedAtDesc(conversation);
+            Collections.reverse(history);
 
             if (history.isEmpty()) {
                 logger.info("분석할 대화 내역이 없습니다.");
@@ -94,9 +103,9 @@ public class AnalysisService {
             String summary = result.get("summary").getAsString();
             String sentiment = result.get("sentiment").getAsString();
 
-            // 6. DB에 결과 저장 (덮어쓰기)
+            // [수정] 10. User 기준으로 UserAnalysis 저장
             UserAnalysis analysis = userAnalysisRepository.findByUser(user)
-                    .orElse(new UserAnalysis(user)); // 없으면 새로 생성
+                    .orElse(new UserAnalysis(user));
 
             analysis.setConversationSummary(summary);
             analysis.setCurrentSentiment(sentiment);
@@ -115,7 +124,7 @@ public class AnalysisService {
      */
     private String buildAnalysisPrompt(List<ChatMessage> history) {
         String conversationText = history.stream()
-                .map(msg -> msg.getSender() + ": " + msg.getMessage())
+                .map(msg -> msg.getRole().name() + ": " + msg.getContent()) // .getSender() -> .getRole().name()
                 .collect(Collectors.joining("\n"));
 
         return "다음 대화록을 읽고 2가지 작업을 수행한 뒤, 반드시 JSON 객체 문자열 하나만 응답해줘:\n" +

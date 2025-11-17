@@ -1,7 +1,7 @@
 package com.example.backend.repository;
 
 import com.example.backend.model.ChatMessage;
-import com.example.backend.model.User;
+import com.example.backend.model.ChatConversation; // 1. User -> ChatConversation
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,6 +10,9 @@ import java.util.List;
 @Repository
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
-    // 특정 유저의 최근 대화 N개를 시간순으로 조회 (최신순 -> 역순 정렬)
-    List<ChatMessage> findTop10ByUserOrderByTimestampDesc(User user);
+    // 2. [수정] 특정 대화 ID에 속한 모든 메시지를 시간순으로 조회
+    List<ChatMessage> findByChatConversationOrderByCreatedAtAsc(ChatConversation chatConversation);
+
+    // 3. [수정] 특정 대화 ID의 최근 N개 메시지를 최신순으로 조회
+    List<ChatMessage> findTop10ByChatConversationOrderByCreatedAtDesc(ChatConversation chatConversation);
 }

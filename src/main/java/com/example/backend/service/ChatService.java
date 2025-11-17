@@ -2,14 +2,18 @@ package com.example.backend.service;
 
 import com.example.backend.config.GeminiConfig;
 import com.example.backend.dto.ChatResponse;
+import com.example.backend.model.ChatConversation;
 import com.example.backend.model.ChatMessage;
 import com.example.backend.model.User;
 import com.example.backend.model.UserAnalysis;
+import com.example.backend.repository.ChatConversationRepository;
 import com.example.backend.repository.ChatMessageRepository;
 import com.example.backend.repository.UserAnalysisRepository;
 import com.example.backend.repository.UserRepository;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -19,6 +23,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -26,10 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 채팅 서비스 클래스
- * Gemini API와 REST 통신하여 AI 응답 처리
- */
 @Service
 public class ChatService {
 
@@ -43,17 +44,20 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final UserAnalysisRepository userAnalysisRepository;
     private final AnalysisService analysisService;
+    private final ChatConversationRepository  chatConversationRepository;
 
     public ChatService(GeminiConfig geminiConfig,
                        UserRepository userRepository,
                        ChatMessageRepository chatMessageRepository,
                        UserAnalysisRepository userAnalysisRepository,
-                       AnalysisService analysisService) {
+                       AnalysisService analysisService,
+                       ChatConversationRepository chatConversationRepository) {
         this.geminiConfig = geminiConfig;
         this.userRepository = userRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.userAnalysisRepository = userAnalysisRepository;
         this.analysisService = analysisService;
+        this.chatConversationRepository = chatConversationRepository;
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
@@ -66,7 +70,10 @@ public class ChatService {
      * 사용자 메시지를 Gemini API에 보내고 응답 받기
      */
     @Transactional
-    public ChatResponse chat(String email, String userMessage) {
+    public ChatResponse chat(String email, String userMessage, Long conversationId) {
+        ChatResponse chatResponse = new ChatResponse();
+        chatResponse.setTimestamp(getCurrentTimestamp());
+
         try {
             logger.info("사용자 {} 메시지 수신: {}", email, userMessage);
 
@@ -74,10 +81,33 @@ public class ChatService {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
+            // --- 10. [신규] 대화 세션(Conversation) 로드 또는 생성 ---
+            ChatConversation conversation;
+            if (conversationId != null) {
+                // 기존 대화 ID가 있으면 로드
+                conversation = chatConversationRepository.findById(conversationId)
+                        .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                // (보안 강화) 이 대화가 현재 사용자의 것인지 확인
+                if (!conversation.getUser().getId().equals(user.getId())) {
+                    throw new SecurityException("User not authorized for this conversation");
+                }
+            } else {
+                // 대화 ID가 없으면 새로 생성
+                conversation = new ChatConversation();
+                conversation.setUser(user);
+                // (임시) 첫 메시지 30자로 제목 생성
+                String title = userMessage.length() > 30 ? userMessage.substring(0, 30) + "..." : userMessage;
+                conversation.setTitle(title);
+                conversation = chatConversationRepository.save(conversation); // DB에 저장하여 ID 획득
+            }
+
             UserAnalysis analysis = userAnalysisRepository.findByUser(user)
                     .orElse(new UserAnalysis(user)); // 없으면 새 분석 객체 준비
 
-            List<ChatMessage> history = chatMessageRepository.findTop10ByUserOrderByTimestampDesc(user);
+            // =================================================================
+            // [수정] user -> conversation 으로 변경
+            // =================================================================
+            List<ChatMessage> history = chatMessageRepository.findTop10ByChatConversationOrderByCreatedAtDesc(conversation);
             Collections.reverse(history); // 시간순(오래된->최신)으로 뒤집기
 
             // --- 4. 맞춤형 프롬프트 생성 ---
@@ -89,31 +119,56 @@ public class ChatService {
 
             // 6. Gemini API 호출
             String aiResponseText = callGeminiApi(requestBody);
-            logger.info("Gemini 응답 수신 완료");
+            logger.info("Gemini JSON 응답 수신: {}", aiResponseText);
 
-            // --- 7. 대화 내용 DB에 저장 ---
-            chatMessageRepository.save(new ChatMessage(user, "USER", userMessage));
-            chatMessageRepository.save(new ChatMessage(user, "AI", aiResponseText));
+            // ✨ [신규] MalformedJsonException 해결을 위한 JSON 정제 로직
+            String cleanedJsonText = aiResponseText;
+            int jsonStart = cleanedJsonText.indexOf("{");
+            int jsonEnd = cleanedJsonText.lastIndexOf("}");
 
-            // --- 8. 비동기 분석 서비스 호출 (사용자 응답과 분리) ---
-            analysisService.analyzeConversationAsync(user.getId());
+            if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+                // 첫 '{'와 마지막 '}' 사이의 텍스트만 추출합니다.
+                cleanedJsonText = cleanedJsonText.substring(jsonStart, jsonEnd + 1);
+            } else {
+                // 유효한 JSON을 찾지 못한 경우 (오류 유발을 위해 원본 유지)
+                logger.error("Gemini 응답에서 유효한 JSON 객체를 찾지 못했습니다: {}", aiResponseText);
+            }
+            // ✨ 정제된 텍스트 로깅
+            logger.info("정제된 JSON 텍스트: {}", cleanedJsonText);
 
-            // 9. ChatResponse 객체 생성
-            ChatResponse chatResponse = new ChatResponse();
-            chatResponse.setMessage(aiResponseText);
-            chatResponse.setTimestamp(getCurrentTimestamp());
+            // [수정] JSON 파싱 (54번 답변에서 추가됨)
+            JsonObject aiResponseJson = JsonParser.parseString(cleanedJsonText).getAsJsonObject();
+            String aiReply = aiResponseJson.get("reply").getAsString();
+            String emotion = aiResponseJson.get("emotion").getAsString();
+            String stressCause = aiResponseJson.get("stressCause").getAsString();
+
+            // --- 14. [수정] 대화 내용 DB에 저장 (Conversation에 연결) ---
+            chatMessageRepository.save(new ChatMessage(
+                    conversation,
+                    ChatMessage.MessageRole.USER,
+                    userMessage
+            ));
+            chatMessageRepository.save(new ChatMessage(
+                    conversation,
+                    ChatMessage.MessageRole.ASSISTANT,
+                    aiReply
+            ));
+
+            // --- 15. [수정] 비동기 분석 서비스 호출 (Conversation ID 전달) ---
+            analysisService.analyzeConversationAsync(user.getId(), conversation.getId());
+
+            // --- 16. [수정] 프론트엔드로 보낼 최종 응답 객체 구성 ---
+            chatResponse.setMessage(aiReply);
+            chatResponse.setEmotion(emotion);
+            chatResponse.setStressCause(stressCause);
+            chatResponse.setRecommendedContents(new ArrayList<>()); // TODO
+            chatResponse.setConversationId(conversation.getId()); // 17. 대화 ID 포함
 
             return chatResponse;
         } catch (Exception e) {
             logger.error("Gemini API 호출 중 오류 발생", e);
-
-            // 에러 응답 생성
-            ChatResponse errorResponse = new ChatResponse();
-            // 오류 메시지에 예외 상세 정보를 포함하여 디버깅에 도움을 줍니다.
-            errorResponse.setMessage("죄송합니다. 현재 서비스를 이용할 수 없습니다. 오류: " + e.getMessage());
-            errorResponse.setTimestamp(getCurrentTimestamp());
-
-            return errorResponse;
+            chatResponse.setMessage("죄송합니다. 현재 서비스를 이용할 수 없습니다. 오류: " + e.getMessage());
+            return chatResponse;
         }
     }
 
@@ -127,9 +182,15 @@ public class ChatService {
         sb.append("너는 매우 공감 능력이 뛰어나고 다정한 친구이자 심리 상담사야.\n");
         sb.append("사용자의 기분을 파악하고, 위로와 지지를 보내주는 것이 너의 역할이야. " +
                 "절대로 사용자를 비난하거나 판단하지 마.\n\n");
+        sb.append("이제 [사용자의 새 메시지]에 대해 아래 3가지 항목을 포함하는 JSON 객체 '하나만' 응답해줘.\n");
+        sb.append("1. 'reply': 사용자의 메시지에 대한 다정한 공감/위로 답변 (줄바꿈이 필요하면 \\n 사용)\n");
+        sb.append("2. 'emotion': 사용자의 감정 상태 (예: 'stressed', 'anxious', 'tired', 'neutral', 'positive')\n");
+        sb.append("3. 'stressCause': 사용자의 스트레스 원인 (예: '업무 과다', '회의', '마감일', '불안', '기타')\n\n");
+        sb.append("중요: 절대로 JSON 객체 외의 다른 텍스트(예: '```json', '답변입니다:')를 포함하지 마.\n\n");
+
 
         // (기억 1) 사용자 분석 정보 주입
-        if (analysis.getConversationSummary() != null) {
+        if (analysis.getConversationSummary() != null && !analysis.getConversationSummary().isEmpty()) {
             sb.append("[네가 기억해야 할 사용자 정보]\n");
             sb.append(" - 이전 대화 요약: ").append(analysis.getConversationSummary()).append("\n");
             sb.append(" - 사용자의 현재 감정 상태: ").append(analysis.getCurrentSentiment()).append("\n");
@@ -139,13 +200,11 @@ public class ChatService {
         // (기억 2) 대화 기록은 buildRequestBodyWithContext에서 처리
 
         // (기억 3) 새 메시지
-        sb.append("이제 사용자가 보낸 새 메시지에 대해 다정하게 응답해줘.\n");
-        sb.append("사용자: ").append(newMessage).append("\n");
-        sb.append("너(AI): "); // AI의 답변을 유도
+        sb.append("[사용자의 새 메시지]\n");
+        sb.append(newMessage).append("\n\n");
+        sb.append("JSON 응답: "); // AI의 JSON 답변을 유도
 
         return sb.toString();
-        // 참고: Gemini API는 'contents'로 대화 턴을 전달받으므로,
-        // 실제로는 이 프롬프트와 history를 조합해 JSON을 만듭니다. (아래 buildRequestBodyWithContext 참고)
     }
 
     /**
@@ -157,43 +216,46 @@ public class ChatService {
      */
     private String buildRequestBodyWithContext(List<ChatMessage> history, String personalizedPrompt) {
         try {
-            com.google.gson.JsonArray contentsArray = new com.google.gson.JsonArray();
+            JsonArray contentsArray = new JsonArray();
 
             // 1. 대화 기록(history)을 JSON에 추가
             for (ChatMessage msg : history) {
                 JsonObject parts = new JsonObject();
-                parts.addProperty("text", msg.getMessage());
-                com.google.gson.JsonArray partsArray = new com.google.gson.JsonArray();
+                parts.addProperty("text", msg.getContent()); // [수정] .getMessage() -> .getContent()
+                JsonArray partsArray = new JsonArray();
                 partsArray.add(parts);
 
                 JsonObject contents = new JsonObject();
                 contents.add("parts", partsArray);
-                // "USER" -> "user", "AI" -> "model"
-                contents.addProperty("role", msg.getSender().equalsIgnoreCase("AI") ? "model" : "user");
-
+                // [수정] .getSender() -> .getRole().name()
+                contents.addProperty("role", msg.getRole() == ChatMessage.MessageRole.ASSISTANT ? "model" : "user");
                 contentsArray.add(contents);
             }
 
             // 2. 시스템 프롬프트와 새 메시지를 마지막 "user" 턴으로 추가
+            // ... (이후 로직은 동일)
             JsonObject lastParts = new JsonObject();
-            lastParts.addProperty("text", personalizedPrompt); // history 대신 이 프롬프트를 사용
-            com.google.gson.JsonArray lastPartsArray = new com.google.gson.JsonArray();
+            lastParts.addProperty("text", personalizedPrompt);
+            JsonArray lastPartsArray = new JsonArray();
             lastPartsArray.add(lastParts);
 
             JsonObject lastContents = new JsonObject();
             lastContents.add("parts", lastPartsArray);
-            lastContents.addProperty("role", "user"); // 새 메시지는 항상 user
-
+            lastContents.addProperty("role", "user");
             contentsArray.add(lastContents);
 
-            // 최종 JSON
+            // ... (genConfig, requestJson 생성)
+            //JsonObject genConfig = new JsonObject();
+           // genConfig.addProperty("responseMimeType", "application/json");
+
             JsonObject requestJson = new JsonObject();
             requestJson.add("contents", contentsArray);
+            //requestJson.add("generationConfig", genConfig);
 
             return requestJson.toString();
         } catch (Exception e) {
-            logger.error("요청 바디 생성 오류", e);
-            throw new RuntimeException("요청 바디 생성 실패", e);
+            logger.error("JSON 요청 바디 생성 오류", e);
+            throw new RuntimeException("JSON 요청 바디 생성 실패", e);
         }
     }
 
