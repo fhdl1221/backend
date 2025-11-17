@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.format.DateTimeFormatter;
+import org.springframework.security.core.Authentication;
 
 /**
  * 채팅 API 컨트롤러
@@ -35,18 +36,16 @@ public class ChatController {
         this.chatService = chatService;
     }
 
-    /**
-     * 채팅 메시지 전송
-     *
-     * POST /api/chat/send
-     *
-     * @param request 클라이언트에서 보낸 채팅 요청
-     * @return 200 OK 및 AI 응답, 또는 400 Bad Request
-     */
     @PostMapping("/send")
-    public ResponseEntity<ChatResponse> sendMessage(@RequestBody ChatRequest request) {
+    public ResponseEntity<ChatResponse> sendMessage(
+            @RequestBody ChatRequest request, Authentication authentication) {
 
-        logger.info("채팅 요청 수신");
+        logger.info("채팅 요청 수신 (Conv ID: {})", request.getConversationId());
+
+        String email = authentication.getName();
+        if(email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
         // 유효성 검사 - 메시지가 비어있는지 확인
         if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
@@ -62,15 +61,11 @@ public class ChatController {
 
         try {
             // ChatService에서 응답 받기
-            ChatResponse response = chatService.chat(request.getMessage());
+            ChatResponse response = chatService.chat(email, request.getMessage(), request.getConversationId());
 
-            logger.info("채팅 응답 전송");
+            logger.info("채팅 응답 전송 (Conv ID: {})", response.getConversationId());
 
-            // ChatService에서 이미 오류 정보를 포함한 응답을 생성하므로 200 OK를 반환합니다.
-            // (ChatService의 try-catch 로직에 따라)
-            return ResponseEntity
-                    .status(HttpStatus.OK)
-                    .body(response);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             logger.error("요청 처리 중 서버 오류 발생", e);
@@ -109,10 +104,6 @@ public class ChatController {
 
     /**
      * 환영 메시지
-     *
-     * GET /api/chat/welcome
-     *
-     * @return 환영 메시지
      */
     @GetMapping("/welcome")
     public ResponseEntity<String> welcome() {

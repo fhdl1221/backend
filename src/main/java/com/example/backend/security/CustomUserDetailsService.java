@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 
+// Spring Security가 사용자를 인증할 때, 실제 데이터베이스에서 사용자 정보를 조회하는 역할
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
@@ -19,21 +20,22 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     @Transactional
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         return new org
-                .springframework.security.core.userdetails.User(user.getUsername(),
+                .springframework.security.core.userdetails.User(user.getEmail(),
                 user.getPassword(), new ArrayList<>());
     }
+
     @Transactional
     public UserDetails loadUserById(Long id) {
         User user = userRepository.findById(id).orElseThrow(
                 () -> new UsernameNotFoundException("User not found with id: " + id)
         );
         return new org
-                .springframework.security.core.userdetails.User(user.getUsername(),
+                .springframework.security.core.userdetails.User(user.getEmail(),
                 user.getPassword(), new ArrayList<>());
     }
 }

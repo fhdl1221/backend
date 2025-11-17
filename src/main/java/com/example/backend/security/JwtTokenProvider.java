@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 
+// JWT 토큰을 생성하고 검증하며, 토큰에서 정보를 추출하는 유틸리티 클래스
 @Component
 public class JwtTokenProvider {
     @Value("${app.jwtSecret}")
@@ -21,6 +22,7 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
+    // 인증이 성공한 사용자 정보를 받아 JWT 토큰을 생성
     public String generateToken(Authentication authentication) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
@@ -33,6 +35,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    // 토큰 문자열을 파싱하여 토큰에 저장된 사용자 이메일을 반환
     public String getUsernameFromJWT(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
@@ -43,6 +46,7 @@ public class JwtTokenProvider {
         return claims.getSubject();
     }
 
+    // 토큰이 유효한지(서명이 올바른지, 만료되지 않았는지) 검사
     public boolean validateToken(String authToken) {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
