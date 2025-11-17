@@ -60,6 +60,12 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:5174",
                 "http://localhost:5173")); // React 앱 주소
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5174",
+                "http://localhost:5173",
+                "https://myapp.com",           // ← 프로덕션 프론트엔드 도메인
+                "https://www.myapp.com"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("authorization", "content-type", "x-auth-token"));
         configuration.setExposedHeaders(Arrays.asList("x-auth-token"));
