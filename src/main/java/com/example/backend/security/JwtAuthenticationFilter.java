@@ -15,8 +15,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+// 클라이언트의 모든 HTTP 요청을 가로채서(Filter), 요청 헤더(Header)에 JWT 토큰이 있는지 확인하고 유효성을 검증
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter { // OncePerRequestFilter : 요청당 한 번만 실행되는 필터
 
     @Autowired
     private JwtTokenProvider tokenProvider;
@@ -28,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws
             ServletException, IOException {
         try {
-            String jwt = getJwtFromRequest(request);
+            String jwt = getJwtFromRequest(request); // Authorization 헤더에서 "Bearer" 접두사를 제거하고 토큰을 추출
 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromJWT(jwt);

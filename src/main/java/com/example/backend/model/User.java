@@ -81,4 +81,15 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DailyStatistics> dailyStatistics;
+
+
+    // 알림 기능 위해 추가
+    @Column(name = "web_push_endpoint", length = 512)
+    private String webPushEndpoint;
+
+    @Column(name = "web_push_p256dh", length = 256)
+    private String webPushP256dh;
+
+    @Column(name = "web_push_auth", length = 256)
+    private String webPushAuth;
    }

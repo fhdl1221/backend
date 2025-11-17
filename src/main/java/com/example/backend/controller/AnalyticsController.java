@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/analytics")
+@RequestMapping("/api/analytics") // 클래스 레벨에 붙임 -> 이 컨트롤러의 공통 URL prefix지정, 이 컨트롤러 안에 있는 모든 메서드는 URL이 /api/analytics로 시작
 @RequiredArgsConstructor
 public class AnalyticsController {
 
@@ -32,10 +32,14 @@ public class AnalyticsController {
         throw new IllegalArgumentException("Cannot extract email from principal of type: " + principal.getClass());
     }
 
+    /**
+     * 요청이 들어오면 메서드 실행 -> 데이터 가져와 ResponseEntity로 반환
+     * GET /api/analytics/dashboard 요청을 처리
+     */
     @GetMapping("/dashboard")
     public ResponseEntity<DashboardDataResponse> getDashboardData(
             @RequestParam(value = "period", defaultValue = "7") int period,
-            @AuthenticationPrincipal Object principal) {
+            @AuthenticationPrincipal Object principal) { // @AuthenticationPrincipal을 통해 현재 인증된 사용자의 정보(이메일)를 가져옴
 
         try {
             String email = getEmailFromPrincipal(principal);

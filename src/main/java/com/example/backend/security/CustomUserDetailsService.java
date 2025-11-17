@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 
+// Spring Security가 사용자를 인증할 때, 실제 데이터베이스에서 사용자 정보를 조회하는 역할
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
