@@ -59,13 +59,11 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:5174",
-                "http://localhost:5173")); // React 앱 주소
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:5174",
                 "http://localhost:5173",
+                "http://192.168.45.33:5174",
                 "https://myapp.com",           // ← 프로덕션 프론트엔드 도메인
-                "https://www.myapp.com"
-        ));
+                "https://www.myapp.com")); // React 앱 주소
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("authorization", "content-type", "x-auth-token"));
         configuration.setExposedHeaders(Arrays.asList("x-auth-token"));

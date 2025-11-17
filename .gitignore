@@ -33,3 +33,29 @@ build/
 .vscode/
 
 application.properties
+
+# =======================================
+# Application Properties (민감한 정보 보호) ⭐
+# =======================================
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+src/main/resources/application.yml
+src/main/resources/application-*.yml
+
+# =======================================
+# Environment Variables
+# =======================================
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# =======================================
+# 추가 보안 파일들
+# =======================================
+*.key
+*.pem
+*.p12
+secrets/
+.secrets/
+credentials/
