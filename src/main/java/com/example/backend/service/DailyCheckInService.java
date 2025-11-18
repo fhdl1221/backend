@@ -109,7 +109,6 @@ public class DailyCheckInService {
             // 여기서는 예외를 로깅만 하고 다시 던지지 않습니다.
             logger.error("Failed to update daily statistics for user: {}: {}", user.getEmail(), e.getMessage());
         }
-        // --- ⬆️ [추가] 로직 끝 ⬆️ ---
 
         // [수정] 저장된 엔티티 반환
         return savedCheckIn;
