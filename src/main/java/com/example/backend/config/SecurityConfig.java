@@ -61,7 +61,7 @@ public class SecurityConfig {
                 "http://localhost:5174",
                 "http://localhost:5173",
                 "http://192.168.45.33:5174",
-                "https://myapp.com",           // ← 프로덕션 프론트엔드 도메인
+                "httpsAccess-Control-Allow-Origin", // ⬅️ [추가] Vercel 배포 주소
                 "https://www.myapp.com")); // React 앱 주소
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

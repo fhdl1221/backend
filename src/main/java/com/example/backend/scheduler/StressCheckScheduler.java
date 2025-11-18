@@ -34,7 +34,7 @@ public class StressCheckScheduler {
      * [1. 정규 스케줄러]
      * 매일 오전 9시에 모든 사용자를 대상으로 실행됩니다.
      */
-    @Scheduled(cron = "0 0 9 * * *")
+    @Scheduled(cron = "0 25 9 * * *") // cron 표현식 : 왼쪽부터 초, 분, 시, 일, 월, 요일
     @Transactional(readOnly = true)
     public void checkAllUsersStress() {
         logger.info("오전 9시 스트레스 알림 스케줄러 시작...");

@@ -1,5 +1,7 @@
 package com.example.backend.dto;
 
+import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -7,7 +9,12 @@ import java.util.List;
  * CheckIn 요청 DTO
  * 사용자가 현재 상태를 기록할 때 보내는 데이터
  */
+@Data
 public class CheckInRequest {
+
+
+    private List<String> stressCauses; // (예: ["업무", "학업"])
+    private String memo;
 
     private String userId;                    // 사용자 ID
     private String emotion;                   // 현재 감정 (행복, 불안, 우울, 중립 등)
