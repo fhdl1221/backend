@@ -5,12 +5,13 @@ COPY . .
 RUN mvn clean package -DskipTests
 
 # 2. 실행 단계 (빌드된 결과물만 가져와서 가볍게 실행)
-FROM openjdk:17-jdk-slim
+# [수정] openjdk:17-jdk-slim 대신 eclipse-temurin:17-jdk 사용
+FROM eclipse-temurin:17-jdk
 WORKDIR /app
 # 빌드 단계에서 생성된 jar 파일을 app.jar라는 이름으로 복사
 COPY --from=build /app/target/*.jar app.jar
 
-# 8080 포트 개방 (Render가 이 포트를 감지함)
+# 8080 포트 개방
 EXPOSE 8080
 
 # 실행 명령어
