@@ -61,7 +61,7 @@ public class SecurityConfig {
                 "http://localhost:5174",
                 "http://localhost:5173",
                 "http://192.168.45.33:5174",
-                "https://softday-frontend.vercel.app", // ⬅️ [추가] Vercel 배포 주소
+                "https://softday.vercel.app", // ⬅️ [추가] Vercel 배포 주소
                 "https://www.myapp.com")); // React 앱 주소
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
