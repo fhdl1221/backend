@@ -32,15 +32,15 @@ build/
 ### VS Code ###
 .vscode/
 
-application.properties
+# application.properties
 
 # =======================================
 # Application Properties (민감한 정보 보호) ⭐
 # =======================================
-src/main/resources/application.properties
-src/main/resources/application-*.properties
-src/main/resources/application.yml
-src/main/resources/application-*.yml
+#src/main/resources/application.properties
+#src/main/resources/application-*.properties
+#src/main/resources/application.yml
+#src/main/resources/application-*.yml
 
 # =======================================
 # Environment Variables
